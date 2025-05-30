@@ -1,0 +1,217 @@
+/**************************************************************
+Formula Name: MMC_BEN_DFLT_ENRLT_FF
+Formula Type: Default Enrollment
+Purpose: Default Enrollment for Loss of Eligibility Life Event
+/*************************************************************/
+DEFAULT FOR BEN_PLN_NAME is 'X'
+DEFAULT FOR BEN_OPT_NAME IS 'Y'
+DEFAULT FOR BEN_PHB_REGISTERED_DISABLED_FLAG is 'X'
+default_data_value for PER_EXT_CONT_CONTACT_TYPE is 'X'
+default_DATA_VALUE for PER_EXT_CONT_PER_PERSON_ID is 0
+default_data_value for PER_EXT_CONT_DATE_OF_BIRTH is '1951-01-01' (date)
+DEFAULT FOR BEN_LER_NAME IS 'ABC'
+DEFAULT FOR BEN_PIL_LF_EVT_OCRD_DT is '01-Jan-1950' (date)
+DEFAULT FOR PER_PER_FULL_NAME  is 'XXX'
+DEFAULT FOR PER_PER_DATE_OF_BIRTH is '2016/01/01' (date) 
+
+
+l_pln_name = BEN_PLN_NAME
+l_opt_name = BEN_OPT_NAME
+l_ler_name = BEN_LER_NAME
+l_lf_evt_ocrd_dt = BEN_PIL_LF_EVT_OCRD_DT
+l_cvg_strt_dt = BEN_PIL_LF_EVT_OCRD_DT
+l_sp_count = 0
+l_eec_count = 0
+l_prev_plan_name = 'NA'
+L_DISABLED = 'NA'
+L_STUDENT_STATUS = 'NA'
+l_prev_tm_only = 'N'
+l_prev_tm_plus_1 = 'N'
+l_prev_tm_fam = 'N'
+AUTO_DFLT_VAL = 'N'
+CARRY_FORWARD_ELIG_DPNT = 'CFWP'
+l_contact_full_name = 'Default'
+l_prev_cvg_date = TRIM(TO_CHAR(ADD_DAYS(l_lf_evt_ocrd_dt,-1),'YYYY-MM-DD'))
+
+l_log_data = ess_log_write('The new Coverage Date is '||to_char(l_cvg_strt_dt, 'YYYYMMDD'))
+
+/* Get Dependent Count */
+i=1
+j = 1
+k = 1
+WHILE PER_EXT_CONT_CONTACT_TYPE.exists(i)
+                LOOP				
+				(
+				l_prev_enroll = 'N'
+				l_contact_full_name = 'YYY'
+				    if PER_EXT_CONT_CONTACT_TYPE[i] = 'S' then 
+					
+						change_contexts(PERSON_ID = PER_EXT_CONT_PER_PERSON_ID[i])
+						  (
+							 l_contact_full_name = PER_PER_FULL_NAME
+							 l_contact_dob    = PER_PER_DATE_OF_BIRTH	 								 
+						  )
+									 
+						 change_contexts(EFFECTIVE_DATE = TO_DATE(l_prev_cvg_date,'YYYY-MM-DD'))
+									  (
+									   l_prev_enroll = ben_fn_get_char_value( 'BEN_ELIG_CVRD_DPNT'
+														 ,'ENROLLED'
+														 ,l_pln_name
+														 ,'NA'
+														 ,'DEPENDENT_FULL_NAME'
+														 ,l_contact_full_name
+														  )
+									  )									  
+
+									  l_log_data =  ESS_LOG_WRITE (' DEFAULT Spouse : l_prev_enroll 1 : '||l_prev_enroll)
+
+									   if (l_prev_enroll = 'Y') then
+									   (
+										 l_sp_count = l_sp_count + 1
+									   )	
+
+					
+					 
+					
+					else if (PER_EXT_CONT_CONTACT_TYPE[i] = 'C' OR PER_EXT_CONT_CONTACT_TYPE[i] = 'A' OR PER_EXT_CONT_CONTACT_TYPE[i] = 'O' OR PER_EXT_CONT_CONTACT_TYPE[i] = 'T') then 
+						(
+								change_contexts(PERSON_ID = PER_EXT_CONT_PER_PERSON_ID[i])
+								  (
+									 l_contact_full_name = PER_PER_FULL_NAME
+									 l_contact_dob    = PER_PER_DATE_OF_BIRTH	 								 
+								  )
+											 
+								 change_contexts(EFFECTIVE_DATE = TO_DATE(l_prev_cvg_date,'YYYY-MM-DD'))
+											  (
+											   l_prev_enroll = ben_fn_get_char_value( 'BEN_ELIG_CVRD_DPNT'
+																 ,'ENROLLED'
+																 ,l_pln_name
+																 ,'NA'
+																 ,'DEPENDENT_FULL_NAME'
+																 ,l_contact_full_name
+																  )
+											  )									  
+
+											  l_log_data =  ESS_LOG_WRITE (' DEFAULT Child : l_prev_enroll 2 : '||l_prev_enroll)
+						
+							if(trunc(MONTHS_BETWEEN(l_lf_evt_ocrd_dt, PER_EXT_CONT_DATE_OF_BIRTH[i])/12) < 26) and (l_prev_enroll = 'Y') then 
+							(
+							 l_eec_count = l_eec_count + 1
+							)
+							else 
+							(
+							  CHANGE_CONTEXTS(PERSON_ID = PER_EXT_CONT_PER_PERSON_ID[i]) (   L_DISABLED = BEN_PHB_REGISTERED_DISABLED_FLAG  )
+											if (L_DISABLED = 'Y' or L_DISABLED = 'F' or L_DISABLED = 'P') and (l_prev_enroll = 'Y')then 
+											(l_eec_count = l_eec_count + 1)
+							)
+						
+						)
+					i = i + 1
+				)
+                                
+                                
+l_log_data = ess_log_write('The SP Counts '||to_char(l_sp_count)||'* Eligible Child COunt '||to_char(l_eec_count))
+
+
+
+/* Get Previous Enrollment */
+CHANGE_CONTEXTS(EFFECTIVE_DATE = add_days(l_cvg_strt_dt, -1))
+(
+  if BEN_PLN_NAME like 'Decline%' then 
+  (
+                if 'Y' = ben_fn_get_char_value('BEN_PRTT_ENRT_RSLT', 'ENROLLED', 'Decline Medical Coverage', 'NA') then 
+                (
+					AUTO_DFLT_VAL = 'Y'
+					CARRY_FORWARD_ELIG_DPNT = 'CFWP'
+					l_log_data = ess_log_write('Defaulting to Decline Medical Coverage')
+					return AUTO_DFLT_VAL, CARRY_FORWARD_ELIG_DPNT
+                )                              
+                if 'Y' = ben_fn_get_char_value('BEN_PRTT_ENRT_RSLT', 'ENROLLED', 'Decline Dental Coverage', 'NA') then 
+                (
+					AUTO_DFLT_VAL = 'Y'
+					CARRY_FORWARD_ELIG_DPNT = 'CFWP'
+					l_log_data = ess_log_write('Defaulting to Decline Dental Coverage')
+					return AUTO_DFLT_VAL, CARRY_FORWARD_ELIG_DPNT
+                )
+                if 'Y' = ben_fn_get_char_value('BEN_PRTT_ENRT_RSLT', 'ENROLLED', 'Decline Vision Coverage', 'NA') then 
+                (
+					AUTO_DFLT_VAL = 'Y'
+					CARRY_FORWARD_ELIG_DPNT = 'CFWP'
+					l_log_data = ess_log_write('Defaulting to Decline Vision Coverage')
+					return AUTO_DFLT_VAL, CARRY_FORWARD_ELIG_DPNT
+                )
+  )
+  
+  l_prev_tm_only = ben_fn_get_char_value('BEN_PRTT_ENRT_RSLT', 'ENROLLED', BEN_PLN_NAME, 'Teammate Only')
+  l_prev_tm_plus_1 = ben_fn_get_char_value('BEN_PRTT_ENRT_RSLT', 'ENROLLED', BEN_PLN_NAME, 'Teammate + One')
+  l_prev_tm_fam = ben_fn_get_char_value('BEN_PRTT_ENRT_RSLT', 'ENROLLED', BEN_PLN_NAME, 'Teammate + Family')
+  
+  
+  if( l_prev_tm_only = 'Y' or l_prev_tm_plus_1 = 'Y' or l_prev_tm_fam = 'Y' ) then
+  (
+		if l_prev_tm_only = 'Y' and l_opt_name = 'Teammate Only' then
+		(
+		  AUTO_DFLT_VAL = 'Y'
+		  CARRY_FORWARD_ELIG_DPNT = 'CFWP'
+		  l_log_data = ess_log_write('1 Defaulting into Teammate Only')
+		  return AUTO_DFLT_VAL, CARRY_FORWARD_ELIG_DPNT
+		)
+						
+						
+		if l_prev_tm_plus_1 = 'Y' and l_sp_count = 1 and l_opt_name = 'Teammate + One' then
+		(
+		  AUTO_DFLT_VAL = 'Y'
+		  CARRY_FORWARD_ELIG_DPNT = 'CFWP'
+		  l_log_data = ess_log_write('1 Defaulting into Teammate + One')
+		  return AUTO_DFLT_VAL, CARRY_FORWARD_ELIG_DPNT
+		)
+
+		if l_prev_tm_plus_1 = 'Y' and l_eec_count >= 1 and l_opt_name = 'Teammate + One' then
+		(
+		  AUTO_DFLT_VAL = 'Y'
+		  CARRY_FORWARD_ELIG_DPNT = 'CFWP'
+		  l_log_data = ess_log_write('1 Defaulting into Teammate + One')
+		  return AUTO_DFLT_VAL, CARRY_FORWARD_ELIG_DPNT
+		)
+						
+		if l_prev_tm_plus_1 = 'Y' and l_eec_count = 0 and l_sp_count = 0 and l_opt_name = 'Teammate Only' then
+		(
+		  AUTO_DFLT_VAL = 'Y'
+		  CARRY_FORWARD_ELIG_DPNT = 'CFWP'
+		
+		  return AUTO_DFLT_VAL, CARRY_FORWARD_ELIG_DPNT
+		)
+						
+		if l_prev_tm_fam = 'Y' and l_sp_count = 1 and l_eec_count >= 1 and l_opt_name = 'Teammate + Family' then
+		(
+		  AUTO_DFLT_VAL = 'Y'
+		  CARRY_FORWARD_ELIG_DPNT = 'CFWP'
+		  l_log_data = ess_log_write('10 Defaulting into Teammate + Family')
+		  return AUTO_DFLT_VAL, CARRY_FORWARD_ELIG_DPNT
+		)
+						
+		if l_prev_tm_fam = 'Y' and l_sp_count = 1 and l_eec_count = 0 and l_opt_name = 'Teammate + One' then
+		(
+		  AUTO_DFLT_VAL = 'Y'
+		  CARRY_FORWARD_ELIG_DPNT = 'CFWP'
+		  l_log_data = ess_log_write('11 Defaulting into Teammate + One')
+		  return AUTO_DFLT_VAL, CARRY_FORWARD_ELIG_DPNT
+		)
+						
+		if l_prev_tm_fam = 'Y' and l_sp_count = 0 and l_eec_count = 1 and l_opt_name = 'Teammate + One' then
+		(
+		  AUTO_DFLT_VAL = 'Y'
+		  CARRY_FORWARD_ELIG_DPNT = 'CFWP'
+		  l_log_data = ess_log_write('12 Defaulting into Teammate + One')
+		  return AUTO_DFLT_VAL, CARRY_FORWARD_ELIG_DPNT
+		)
+						
+		if l_prev_tm_fam = 'Y' and l_sp_count = 0 and l_eec_count = 0 and l_opt_name = 'Teammate Only' then
+		(
+		  AUTO_DFLT_VAL = 'Y'
+		  CARRY_FORWARD_ELIG_DPNT = 'CFWP'
+		  l_log_data = ess_log_write('13 Defaulting into Teammate Only')
+		  return AUTO_DFLT_VAL, CARRY_FORWARD_ELIG_DPNT
+		)
+	)  
+)
