@@ -190,11 +190,11 @@ CHANGE_CONTEXTS(EFFECTIVE_DATE = add_days(l_cvg_strt_dt, -1))
 		  return AUTO_DFLT_VAL, CARRY_FORWARD_ELIG_DPNT
 		)
 		/* New logic: If no spouse and more than 2 eligible children, default to Teammate + Family */
-		if l_prev_tm_fam = 'Y' and l_sp_count = 0 and l_eec_count > 2 and l_opt_name = 'Teammate + Family' then
+		if l_prev_tm_fam = 'Y' and l_sp_count = 0 and l_eec_count >= 2 and l_opt_name = 'Teammate + Family' then
 		(
 		  AUTO_DFLT_VAL = 'Y'
 		  CARRY_FORWARD_ELIG_DPNT = 'CFWP'
-		  l_log_data = ess_log_write('10b Defaulting into Teammate + Family (no spouse, >2 children)')
+		  l_log_data = ess_log_write('10b Defaulting into Teammate + Family (no spouse, >=2 children)')
 		  return AUTO_DFLT_VAL, CARRY_FORWARD_ELIG_DPNT
 		)
 						
