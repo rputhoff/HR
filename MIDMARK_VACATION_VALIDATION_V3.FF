@@ -1,0 +1,197 @@
+/****************************************************************************************************
+Formula Name:  MIDMARK_VACATION_VALIDATION V3
+Formula Type:  Global Absence Entry Validation
+Created By:    Dan Adams
+
+Change History:
+Name  		    Version 	Comments
+-------------------------------------------------------------------------------
+Dan Adams       4.2   		Creation
+David Flores    4.3         Modification
+****************************************************************************************************/
+/* Initialize Inputs */
+DEFAULT for IV_START_DATE is '1951-01-01 00:00:00' (date)
+DEFAULT for IV_END_DATE is '4712-12-31 00:00:00' (date)
+DEFAULT for IV_TOTALDURATION is 0
+DEFAULT for IV_START_DURATION is 0
+DEFAULT for IV_END_DURATION is 0
+DEFAULT for IV_ABSENCE_REASON is 'XXX'
+DEFAULT FOR GLOBAL_PAY_INTERFACE_EXTRACTION_DATE is '47121231' 
+DEFAULT FOR PAY_EARN_PERIOD_START is '1951-01-01 00:00:00' (date)
+DEFAULT FOR PAY_EARN_PERIOD_END is '4712-12-31 00:00:00' (date)
+
+/* Declare Inputs */
+INPUTS are IV_START_DATE (date),
+           IV_END_DATE (date),
+           IV_TOTALDURATION,
+           IV_START_DURATION,
+           IV_END_DURATION,
+		   IV_ABSENCE_REASON
+
+valid = 'Y'
+l_person_id = GET_CONTEXT(PERSON_ID,0)
+TYP_ID      = GET_CONTEXT(ABSENCE_TYPE_ID,0)
+abs_year    = to_char(IV_START_DATE,'YYYY')
+cal_start   = to_date((abs_year||'-01-01'),'YYYY-MM-DD')
+cal_end     = to_date((abs_year||'-12-31'),'YYYY-MM-DD')
+CUR_SYS_DATE_DD = to_number (substr(GLOBAL_PAY_INTERFACE_EXTRACTION_DATE ,7,2))
+CUR_SYS_DATE_MM = to_number (substr(GLOBAL_PAY_INTERFACE_EXTRACTION_DATE ,5,2))
+CUR_SYS_DATE_YY = to_number (substr(GLOBAL_PAY_INTERFACE_EXTRACTION_DATE ,1,4))
+l_sysd      = to_date (to_char(CUR_SYS_DATE_MM)|| '/'|| to_char(CUR_SYS_DATE_DD) ||'/'||to_char(CUR_SYS_DATE_YY) ,'MM/DD/YYYY')
+l_effective_date = ADD_MONTHS(l_sysd,1)
+l_accl_date = ADD_DAYS(to_date(to_char(l_effective_date,'MM')||'/01/'||to_char(l_effective_date,'YYYY'),'MM/DD/YYYY'),-1)
+	
+abs_taken         = 0
+p_duration_days   = 0
+p_duration_cal    = 0
+p_duration_weeks  = 0
+p_duration_months = 0
+p_duration_years  = 0
+p_occurances      = 0
+l_exclude_abs_status = 'ORA_WITHDRAWN'
+
+E = GET_ABSENCE_COUNTS(
+    l_person_id,
+    TYP_ID,
+    0,
+    0,
+    0,
+    0,
+    0,
+    cal_start,
+    cal_end,
+    p_duration_days,
+    abs_taken,
+    p_duration_cal,
+    p_duration_weeks,
+    p_duration_months,
+    p_duration_years,
+    p_occurances,
+    l_exclude_abs_status
+)
+
+max_accrual = (to_number(GET_VALUE_SET('MIDMARK_ANC_VAC_MAX_ACCRUAL','|=P_ACCL_DATE='''||TO_CHAR(l_accl_date,'YYYY')||''''||
+											  '|P_PERSON_ID='''||TO_CHAR(l_person_id)||'''')) * 12)
+											  
+if (isnull(max_accrual) = 'N') then
+(
+    max_accrual = 0
+)
+
+l_num           = '-'
+l_entry_dtl_id  = '0'
+bal_adj         = 0
+l_adj           = 0
+
+WHILE (l_entry_dtl_id <> '-1') LOOP
+(
+
+    l_num = GET_VALUE_SET('MIDMARK_ABS_PLAN_BAL_ADJ','|=P_START_DATE='''||TO_CHAR(cal_start,'YYYY-MM-DD')||''''||
+                                            '|P_END_DATE='''||TO_CHAR(cal_end,'YYYY-MM-DD')||''''||
+                                            '|P_PERSON_ID='''||TO_CHAR(l_person_id)||''''||
+                                            '|P_ENTRY_DTL_ID='''||l_entry_dtl_id||'''')
+ 
+    IF(LENGTH(l_num) > 0) THEN
+    (
+    
+        l_entry_dtl_id = substring(l_num, 1, instr(l_num,'|') -1 )
+        l_adj = TO_NUMBER(substring(l_num, instr(l_num,'|')+1, 100))
+        
+        bal_adj = bal_adj + l_adj
+        
+    )
+    ELSE
+    (
+        l_entry_dtl_id = '-1'
+    )
+)
+
+/*bal_adj = (to_number(GET_VALUE_SET('MIDMARK_ABS_PLAN_BAL_ADJ','|=P_START_DATE='''||TO_CHAR(cal_start,'YYYY-MM-DD')||''''||
+                                            '|P_END_DATE='''||TO_CHAR(cal_end,'YYYY-MM-DD')||''''||
+                                            '|P_PERSON_ID='''||TO_CHAR(l_person_id)||'''')))*/
+
+if (bal_adj < 0) then
+(
+    bal_adj = 0
+)
+
+/* Validation check and Error message called */
+if (TYP_ID = 300004099256752) then
+    RETURN 'Y'
+
+if (abs_taken + IV_TOTALDURATION > (max_accrual + bal_adj)) then 
+(
+    error_message = 'You cannot take more vacation than your yearly accrual of '||to_char(max_accrual)||
+                    ' Total duration: '||to_char(IV_TOTALDURATION)||
+                    ' absence taken: '||to_char(abs_taken)||
+                    ' balance adjusted'||to_char(bal_adj)||
+                    ' max accrual'||to_char(max_accrual)||
+                    ' Accrual Date: '||to_char(l_accl_date,'MM/DD/YYYY')||
+                    ' Person ID: '||TO_CHAR(l_person_id)
+                    
+    valid = 'N'
+)
+
+if (isnull(max_accrual) = 'N') then
+(
+    error_message = 'Please contact an administrator. Retrieved normal accrual or vacation category is null'
+    valid = 'N'
+)
+
+/*Below is code for trouble shooting-*/
+/*
+max_accrual_null_flag = 'N'
+
+if(isnull(max_accrual) = 'N') then (
+max_accrual_null_flag = 'Y'
+)
+
+bal_adj_null_flag = 'N'
+
+if(isnull(bal_adj) = 'N') then (
+bal_adj_null_flag = 'Y'
+)
+
+E = GET_ABSENCE_COUNTS(
+l_person_id,
+TYP_ID,
+0,
+0,
+0,
+0,
+0,
+cal_start,
+cal_end,
+p_duration_days,
+abs_taken,
+p_duration_cal,
+p_duration_weeks,
+p_duration_months,
+p_duration_years,
+p_occurances,
+l_exclude_abs_status
+)
+
+error_message = 'l_person_id- '||to_char(l_person_id)
+||'TYP_ID- '||to_char(TYP_ID)
+||', cal_start- '||to_char(cal_start)
+||', cal_end- '||to_char(cal_end)
+||', abs_taken '||to_char(abs_taken)
+||', max_accrual '||to_char(max_accrual)
+||', max_accrual_null_flag '||max_accrual_null_flag
+||', bal_adj '||to_char(bal_adj)
+||', bal_adj_null_flag '||bal_adj_null_flag
+||', IV_TOTALDURATION '||to_char(IV_TOTALDURATION)
+||',P_ACCL_DATE'||to_char(l_accl_date,'MM/DD/YYYY')
+
+valid = 'N'
+*/
+
+if (valid = 'N') Then
+(				
+    return valid,error_message
+)
+else
+(
+    RETURN valid
+)

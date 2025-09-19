@@ -1,0 +1,89 @@
+/******************************************************************************
+FORMULA NAME: MMC_BEN_SPOUSE_CRITICAL_ILLNESS_POST_EDIT_2024
+DESCRIPTION: When a person makes an election to Critical Illness Spouse, validate the person is also enrolled in Critical Illness Teammate. 
+Change History:
+Name Date Comments
+--------------------------------------------------------------------------------------------------------------------------
+Jackie Froatz 11-Apr-2016 Initial Version
+              10-Oct-2016 Added logic for Open Enrollment
+	      19-OCT-2020 removed options no longer used and edited to accomodate certifications
+		  
+Marlene Ray 10-16-2023
+		Removed Administrative set up (Leesburg) 
+
+Marlene Ray 10-19-2023
+		Updated fast formula to look at coverage amounts (is Teammate > Spouse even if suspended)
+
+********************************************************************************************************/
+
+default for BEN_PIL_LF_EVT_OCRD_DT is '01-JAN-1951' (date)
+
+L_EE_CRITICAL_DECLINE = 'N'
+L_SP_CRITICAL_DECLINE = 'N'
+L_EE_CRITICAL_5 = 'N'
+L_EE_CRITICAL_10 = 'N'
+L_EE_CRITICAL_15 = 'N'
+L_EE_CRITICAL_20 = 'N'
+L_SP_CRITICAL_5 = 'N'
+L_SP_CRITICAL_10 = 'N'
+
+l_EE_CI_AMT = 0
+l_SP_CI_AMT = 0
+
+l_EE_CI = 'N'
+l_SP_CI = 'N'
+
+SUCCESSFUL = 'Y'
+ERROR_MESSAGE=' '
+
+l_lf_evt_ocrd_dt = BEN_PIL_LF_EVT_OCRD_DT
+
+l_date_to_use = l_lf_evt_ocrd_dt
+change_contexts(effective_date = l_date_to_use)
+
+(
+
+L_EE_CRITICAL_DECLINE = ben_fn_get_char_value('BEN_PRTT_ENRT_RSLT','ENROLLED','Critical Illness Teammate','Decline Coverage')
+L_SP_CRITICAL_DECLINE = ben_fn_get_char_value('BEN_PRTT_ENRT_RSLT','ENROLLED','Critical Illness Spouse','Decline Coverage')
+
+L_EE_CRITICAL_5 = ben_fn_get_char_value('BEN_PRTT_ENRT_RSLT','ENROLLED','Critical Illness Teammate','$5,000')
+L_EE_CRITICAL_10 = ben_fn_get_char_value('BEN_PRTT_ENRT_RSLT','ENROLLED','Critical Illness Teammate','$10,000')
+L_EE_CRITICAL_15 = ben_fn_get_char_value('BEN_PRTT_ENRT_RSLT','ENROLLED','Critical Illness Teammate','$15,000')
+L_EE_CRITICAL_20 = ben_fn_get_char_value('BEN_PRTT_ENRT_RSLT','ENROLLED','Critical Illness Teammate','$20,000')
+
+L_SP_CRITICAL_5 = ben_fn_get_char_value('BEN_PRTT_ENRT_RSLT','ENROLLED','Critical Illness Spouse','$5,000')
+L_SP_CRITICAL_10 = ben_fn_get_char_value('BEN_PRTT_ENRT_RSLT','ENROLLED','Critical Illness Spouse','$10,000')
+
+IF (L_EE_CRITICAL_5 = 'Y' OR L_EE_CRITICAL_10 = 'Y' OR L_EE_CRITICAL_15 = 'Y' OR L_EE_CRITICAL_20 = 'Y')
+THEN
+l_EE_CI = 'Y'
+
+IF (L_SP_CRITICAL_5 = 'Y' OR L_SP_CRITICAL_10 = 'Y')
+THEN
+l_SP_CI = 'Y'
+
+IF l_EE_CI = 'Y'
+THEN
+(
+l_EE_CI_AMT = To_Number(ben_fn_get_char_value('BEN_PRTT_ENRT_RSLT','BNFT_AMT','Critical Illness Teammate','NA'))
+)
+
+IF l_SP_CI = 'Y'
+THEN
+(
+l_SP_CI_AMT = To_Number(ben_fn_get_char_value('BEN_PRTT_ENRT_RSLT','BNFT_AMT','Critical Illness Spouse','NA'))
+)
+
+
+IF (L_EE_CRITICAL_DECLINE = 'Y' AND L_SP_CRITICAL_DECLINE = 'N') 
+THEN
+(SUCCESSFUL='N'
+ERROR_MESSAGE = 'You must elect Critical Illness Teammate if you elect Critical Illness Spouse')
+
+IF (l_SP_CI_AMT > l_EE_CI_AMT) 
+THEN
+(SUCCESSFUL='N'
+ERROR_MESSAGE = 'Your Critical Illness Spouse benefit amount cannot exceed your Critical Illness Teammate benefit amount')
+)
+
+RETURN SUCCESSFUL,ERROR_MESSAGE
