@@ -1,0 +1,39 @@
+/******************************************************************* 
+ FORMULA NAME: MMC_BEN_ASSIGNMENT_STATUS_INCREASE
+ FORMULA TYPE: Person Changes Causes Life Event 
+DESCRIPTION: Used when assignment category and working hours change and benefits eligibility for new plans increases
+Changes:
+10/03/2025 - RPUTHOFF - Initial Version
+ **********************************************************************/ 
+ Inputs are BEN_ASG_IO_NORMAL_HOURS(number),BEN_ASG_IN_NORMAL_HOURS(number), BEN_ASG_IN_EMPLOYMENT_CATEGORY (text), BEN_ASG_IO_EMPLOYMENT_CATEGORY (text)
+
+ DEFAULT FOR BEN_ASG_IN_NORMAL_HOURS IS 40 
+ DEFAULT FOR BEN_ASG_IO_NORMAL_HOURS IS 40
+ DEFAULT FOR BEN_ASG_IN_EMPLOYMENT_CATEGORY IS 'X' 
+ DEFAULT FOR BEN_ASG_IO_EMPLOYMENT_CATEGORY IS 'Y' 
+
+ l_return = 'N' 
+
+ IF (
+     /* PR >= 20 to FR */
+     (BEN_ASG_IO_EMPLOYMENT_CATEGORY = 'PR' AND BEN_ASG_IO_NORMAL_HOURS >= 20 AND
+      BEN_ASG_IN_EMPLOYMENT_CATEGORY = 'FR')
+     OR
+     /* S_COOP >= 30 to FR */
+     (BEN_ASG_IO_EMPLOYMENT_CATEGORY = 'S_COOP' AND BEN_ASG_IO_NORMAL_HOURS >= 30 AND
+      BEN_ASG_IN_EMPLOYMENT_CATEGORY = 'FR')
+     OR
+     /* S_COOP >= 30 to PR >= 20 */
+     (BEN_ASG_IO_EMPLOYMENT_CATEGORY = 'S_COOP' AND BEN_ASG_IO_NORMAL_HOURS >= 30 AND
+      BEN_ASG_IN_EMPLOYMENT_CATEGORY = 'PR' AND BEN_ASG_IN_NORMAL_HOURS >= 20)
+     OR
+     /* PR < 30 but >= 20 to PR >= 30 */
+     (BEN_ASG_IO_EMPLOYMENT_CATEGORY = 'PR' AND BEN_ASG_IO_NORMAL_HOURS >= 20 AND BEN_ASG_IO_NORMAL_HOURS < 30 AND
+      BEN_ASG_IN_EMPLOYMENT_CATEGORY = 'PR' AND BEN_ASG_IN_NORMAL_HOURS >= 30)
+ )
+ THEN 
+ (l_return = 'Y') 
+ ELSE 
+ (l_return = 'N') 
+
+ RETURN l_return

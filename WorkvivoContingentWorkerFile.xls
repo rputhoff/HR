@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<xsl:stylesheet version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" >
+<xsl:output method="text" encoding="utf-8" />
+<xsl:variable name="delimiter" select="','" />
+<xsl:variable name="condition" select="''" />
+<xsl:variable name="doublequot">"</xsl:variable>
+
+<xsl:template match="/">
+<xsl:text>ID</xsl:text>
+<xsl:value-of select="$delimiter"/>
+<xsl:text>Email</xsl:text>
+<xsl:value-of select="$delimiter"/>
+<xsl:text>FirstName</xsl:text>
+<xsl:value-of select="$delimiter"/>
+<xsl:text>LastName</xsl:text>
+<xsl:value-of select="$delimiter"/>
+<xsl:text>Contingent Worker</xsl:text>
+<xsl:text>&#xa;</xsl:text>
+<xsl:for-each select="/DATA_DS/G_1">
+
+<!--PERSON_NUMBER-->
+<xsl:if test="string-length(translate(PERSONNUMBER,' ','')) > 1  ">
+<xsl:value-of select="PERSONNUMBER"/>
+</xsl:if>
+<xsl:value-of select="$delimiter"/>
+<!--EMAIL-->
+<xsl:if test="string-length(translate(EMAIL,' ','')) > 1  ">
+<xsl:value-of select="EMAIL"/>
+</xsl:if>
+<xsl:value-of select="$delimiter"/>
+<!--TEAMMATE_FIRST_NAME-->
+<xsl:if test="string-length(translate(FIRSTNAME,' ','')) > 1  ">
+<xsl:value-of select="FIRSTNAME"/>
+</xsl:if>
+<xsl:value-of select="$delimiter"/>
+<!--TEAMMATE_LAST_NAME-->
+<xsl:if test="string-length(translate(LASTNAME,' ','')) > 1  ">
+<xsl:value-of select="LASTNAME"/>
+</xsl:if>
+<xsl:value-of select="$delimiter"/>
+<!--CONTINGENT_WORKER-->
+<xsl:if test="string-length(translate(PERSONTYPE,' ','')) > 1  ">
+<xsl:value-of select="PERSONTYPE"/>
+</xsl:if>
+<xsl:text>&#xa;</xsl:text>
+</xsl:for-each>
+</xsl:template>
+</xsl:stylesheet>

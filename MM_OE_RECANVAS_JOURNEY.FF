@@ -1,0 +1,49 @@
+/* ====================================================================
+   Fast Formula: MM_BENEFITS_ELIGIBILITY_FF
+   Purpose: Determine eligibility based on Assignment Category and Working Hours
+   
+    NAME            = MM_BENEFITS_ELIGIBILITY_FF
+    DESCRIPTION     = 'Determines eligibility based on Assignment Category and Working Hours criteria'
+    TYPE            = Benefits Derived Factor
+    DEFAULT FOR     = BEN_ELIG_FF
+
+   Criteria:
+   - Assignment Category = FR
+   OR
+   - Assignment Category = PR AND Working_Hours >= 20
+   OR  
+   - Assignment Category = S_COOP AND Working_Hours >= 30
+   
+   Returns: Y if criteria is met, N if not
+   ==================================================================== */
+
+/* Input Variables */
+INPUTS ARE
+    BEN_ASG_IN_EMPLOYMENT_CATEGORY (Text),
+    BEN_ASG_IN_NORMAL_HOURS (Number)
+
+/* Output Variable */
+RESULT_FLAG = 'N'
+
+/* Main Logic */
+IF BEN_ASG_IN_EMPLOYMENT_CATEGORY = 'FR' THEN
+(
+    RESULT_FLAG = 'Y'
+)
+ELSE
+(
+    IF BEN_ASG_IN_EMPLOYMENT_CATEGORY = 'PR' AND BEN_ASG_IN_NORMAL_HOURS >= 20 THEN
+    (
+        RESULT_FLAG = 'Y'
+    )
+    ELSE
+    (
+        IF BEN_ASG_IN_EMPLOYMENT_CATEGORY = 'S_COOP' AND BEN_ASG_IN_NORMAL_HOURS >= 30 THEN
+        (
+            RESULT_FLAG = 'Y'
+        )
+    )
+)
+
+/* Return the result */
+RETURN RESULT_FLAG
